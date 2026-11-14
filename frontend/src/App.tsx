@@ -19,7 +19,7 @@ function PaginationBar({
   if (totalPages <= 1) return null;
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 20 }}>
       <button
         type="button"
         className="btn btn-outline"
@@ -33,6 +33,11 @@ function PaginationBar({
           key={page}
           type="button"
           className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
+          style={
+            currentPage === page
+              ? { background: '#15803d', borderColor: '#15803d', color: '#fff' }
+              : undefined
+          }
           onClick={() => onPageChange(page)}
         >
           {page}
@@ -69,7 +74,7 @@ export default function App() {
   });
   const [otpSent, setOtpSent] = useState(false);
 
-  // Thông báo góc dưới
+  // Thông báo nổi
   const [msg, setMsg] = useState('');
   const [isClosingToast, setIsClosingToast] = useState(false);
 
@@ -84,7 +89,7 @@ export default function App() {
   const [editingBuyerOrder, setEditingBuyerOrder] = useState<any>(null);
   const [buyerEditForm, setBuyerEditForm] = useState({ buyerPhone: '', shippingAddress: '' });
 
-  // Modal Hủy đơn hàng & Danh sách đơn mở xem lý do hủy
+  // Modal Hủy đơn hàng & Xóa sản phẩm
   const [cancellingOrder, setCancellingOrder] = useState<{
     id: string;
     role: 'CUSTOMER' | 'SHOP_OWNER';
@@ -92,6 +97,7 @@ export default function App() {
   } | null>(null);
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [expandedCancelIds, setExpandedCancelIds] = useState<Record<string, boolean>>({});
+  const [deletingProduct, setDeletingProduct] = useState<{ id: string; name: string } | null>(null);
 
   // Người bán
   const [myShop, setMyShop] = useState<any>(null);
@@ -136,8 +142,8 @@ export default function App() {
     }
     if (status === 'HANDED_OVER') {
       return (
-        <span className="badge" style={{ background: '#dbeafe', color: '#1d4ed8', whiteSpace: 'nowrap' }}>
-          Đã bàn giao ĐVVC
+        <span className="badge" style={{ background: '#fef3c7', color: '#b45309', whiteSpace: 'nowrap' }}>
+          Đang vận chuyển giao gạo
         </span>
       );
     }
@@ -188,8 +194,8 @@ export default function App() {
       );
     }
     return (
-      <span className="badge" style={{ background: '#fef3c7', color: '#b45309', whiteSpace: 'nowrap' }}>
-        Đang chuẩn bị
+      <span className="badge" style={{ background: '#ffedd5', color: '#c2410c', whiteSpace: 'nowrap' }}>
+        Đang đóng bao gạo
       </span>
     );
   };
@@ -355,7 +361,7 @@ export default function App() {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (myShop && !myShop.isActive) return showToast('Shop đã bị khóa! Vui lòng liên hệ Admin.');
+    if (myShop && !myShop.isActive) return showToast('Vựa gạo đã bị khóa! Vui lòng liên hệ Admin.');
     try {
       const payload = {
         name: prodForm.name,
@@ -366,10 +372,10 @@ export default function App() {
       };
       if (editingProductId) {
         await marketplaceApi.updateProduct(editingProductId, payload);
-        showToast('Cập nhật sản phẩm thành công!');
+        showToast('Cập nhật loại gạo thành công!');
       } else {
         await marketplaceApi.createProduct(payload);
-        showToast('Đăng bán sản phẩm thành công!');
+        showToast('Đăng bán loại gạo mới thành công!');
       }
       setEditingProductId(null);
       setProdForm({ name: '', sku: '', price: '', stock: '10', imageUrl: '' });
@@ -392,11 +398,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeleteProduct = async (id: string, name: string) => {
-    if (!window.confirm(`Xóa sản phẩm "${name}"?`)) return;
+  const confirmDeleteProduct = async () => {
+    if (!deletingProduct) return;
     try {
-      await marketplaceApi.deleteProduct(id);
-      showToast(`Đã xóa sản phẩm "${name}"!`);
+      await marketplaceApi.deleteProduct(deletingProduct.id);
+      showToast(`Đã xóa loại gạo "${deletingProduct.name}"!`);
+      setDeletingProduct(null);
       await loadUserContext(false);
       await loadPublicProducts();
     } catch (err: any) {
@@ -411,7 +418,7 @@ export default function App() {
   ) => {
     try {
       await marketplaceApi.updateShopOrderStatus(orderId, { status, cancelReason: reason });
-      showToast('Đã cập nhật trạng thái đơn hàng!');
+      showToast('Đã cập nhật trạng thái đơn gạo!');
       await loadUserContext(false);
       await loadPublicProducts();
     } catch (err: any) {
@@ -422,11 +429,11 @@ export default function App() {
   // --- CUSTOMER ---
   const openCheckoutModal = (product: any) => {
     if (!user) {
-      showToast('Vui lòng đăng nhập tài khoản Người mua để đặt hàng!');
+      showToast('Vui lòng đăng nhập tài khoản Khách mua hàng để đặt gạo!');
       setActiveTab('auth');
       return;
     }
-    if (user.role !== 'CUSTOMER') return showToast('Chỉ tài khoản Người mua mới được đặt hàng!');
+    if (user.role !== 'CUSTOMER') return showToast('Chỉ tài khoản Khách mua hàng mới được đặt hàng!');
 
     const savedInfo = loadBuyerShippingProfile(myOrders);
     setCheckoutProduct(product);
@@ -463,7 +470,7 @@ export default function App() {
     try {
       await marketplaceApi.updateOrderBuyerInfo(editingBuyerOrder.id, buyerEditForm);
       saveBuyerShippingProfile(buyerEditForm.buyerPhone, buyerEditForm.shippingAddress);
-      showToast('Đã cập nhật SĐT và Địa chỉ nhận hàng!');
+      showToast('Đã cập nhật SĐT và Địa chỉ nhận gạo!');
       setEditingBuyerOrder(null);
       await loadUserContext(false);
     } catch (err: any) {
@@ -499,7 +506,7 @@ export default function App() {
   const handleToggleShop = async (shopId: string, currentStatus: boolean) => {
     try {
       await marketplaceApi.toggleShopStatus(shopId, !currentStatus);
-      showToast(!currentStatus ? 'Đã mở khóa Shop!' : 'Đã khóa Shop!');
+      showToast(!currentStatus ? 'Đã mở khóa Vựa gạo!' : 'Đã khóa Vựa gạo!');
       await loadUserContext(false);
       await loadPublicProducts();
     } catch (err: any) {
@@ -525,19 +532,52 @@ export default function App() {
   const shopCancelledCount = shopOrders.filter((o) => o.status === 'CANCELLED').length;
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell" style={{ background: '#fafaf9' }}>
       {/* SIDEBAR BÊN TRÁI */}
-      <aside className="sidebar">
+      <aside
+        className="sidebar"
+        style={{
+          background: 'linear-gradient(180deg, #14532d 0%, #166534 100%)',
+          color: '#f0fdf4',
+          borderRight: '1px solid #14532d',
+        }}
+      >
         <div
           className="sidebar-header"
+          style={{
+            borderBottom: '1px solid rgba(255,255,255,0.12)',
+            padding: '18px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+          }}
           onClick={() => {
             setSelectedShopView(null);
             setPublicProdPage(1);
             if (!user) setActiveTab('market');
           }}
         >
-          <span></span>
-          <span>NexMarket</span>
+          <span
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              background: '#facc15',
+              color: '#14532d',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              fontWeight: 800,
+            }}
+          >
+            🌾
+          </span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 0.3, color: '#ffffff' }}>GạoViệt Market</div>
+            <div style={{ fontSize: 11, color: '#bbf7d0' }}>Chợ Gạo Sạch & Đặc Sản</div>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -545,15 +585,17 @@ export default function App() {
             <>
               <button
                 className={`nav-item ${activeTab === 'market' ? 'active' : ''}`}
+                style={activeTab === 'market' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('market')}
               >
-                Sàn sản phẩm ({products.length})
+                🌾 Sàn Gạo Sạch ({products.length})
               </button>
               <button
                 className={`nav-item ${activeTab === 'auth' ? 'active' : ''}`}
+                style={activeTab === 'auth' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('auth')}
               >
-                Đăng nhập / Đăng ký
+                🔐 Đăng nhập / Đăng ký
               </button>
             </>
           )}
@@ -562,15 +604,17 @@ export default function App() {
             <>
               <button
                 className={`nav-item ${activeTab === 'market' ? 'active' : ''}`}
+                style={activeTab === 'market' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('market')}
               >
-                Mua sắm trên sàn ({products.length})
+                🛒 Mua gạo trên sàn ({products.length})
               </button>
               <button
                 className={`nav-item ${activeTab === 'my-orders' ? 'active' : ''}`}
+                style={activeTab === 'my-orders' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('my-orders')}
               >
-                Đơn hàng đã mua ({myOrders.length})
+                📦 Đơn gạo đã đặt ({myOrders.length})
               </button>
             </>
           )}
@@ -579,15 +623,17 @@ export default function App() {
             <>
               <button
                 className={`nav-item ${activeTab === 'shop-products' ? 'active' : ''}`}
+                style={activeTab === 'shop-products' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('shop-products')}
               >
-                Sản phẩm của Shop ({myProducts.length})
+                🌾 Kho gạo của Vựa ({myProducts.length})
               </button>
               <button
                 className={`nav-item ${activeTab === 'shop-orders' ? 'active' : ''}`}
+                style={activeTab === 'shop-orders' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('shop-orders')}
               >
-                Đơn hàng của Shop ({shopOrders.length})
+                🚚 Đơn đặt gạo ({shopOrders.length})
               </button>
             </>
           )}
@@ -596,51 +642,56 @@ export default function App() {
             <>
               <button
                 className={`nav-item ${activeTab === 'admin-shops' ? 'active' : ''}`}
+                style={activeTab === 'admin-shops' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('admin-shops')}
               >
-                Quản lý Người bán ({adminShops.length})
+                🏪 Quản lý Vựa gạo ({adminShops.length})
               </button>
               <button
                 className={`nav-item ${activeTab === 'admin-users' ? 'active' : ''}`}
+                style={activeTab === 'admin-users' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('admin-users')}
               >
-                Quản lý Người mua ({adminCustomers.length})
+                👥 Quản lý Khách mua ({adminCustomers.length})
               </button>
               <button
                 className={`nav-item ${activeTab === 'market' ? 'active' : ''}`}
+                style={activeTab === 'market' ? { background: '#fef08a', color: '#14532d', fontWeight: 700 } : { color: '#dcfce7' }}
                 onClick={() => setActiveTab('market')}
               >
-                Xem giao diện Sàn ({products.length})
+                🌾 Xem gian hàng Gạo ({products.length})
               </button>
             </>
           )}
         </nav>
 
-        <div className="sidebar-footer">
-          <div>Multi-Vendor System</div>
-          <div>Port: 3000 / 5173</div>
+        <div className="sidebar-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.12)', color: '#bbf7d0' }}>
+          <div>Hạt Ngọc Trời Việt</div>
+          <div>Gạo sạch • Chuẩn nguồn gốc</div>
         </div>
       </aside>
 
       {/* KHUNG LÀM VIỆC CHÍNH BÊN PHẢI */}
       <div className="main-wrapper">
-        <header className="topbar">
-          <div style={{ fontWeight: 600, fontSize: 15, color: '#334155' }}>
-            {user?.role === 'SUPER_ADMIN'
-              ? 'Hệ thống Quản trị Sàn (Admin)'
-              : user?.role === 'SHOP_OWNER'
-              ? `Kênh Người Bán — ${myShop?.name || 'Cửa hàng'}`
-              : user?.role === 'CUSTOMER'
-              ? 'Cổng Mua Sắm Khách Hàng'
-              : activeTab === 'auth'
-              ? 'Xác thực tài khoản'
-              : 'Sàn Thương Mại Điện Tử NexMarket'}
+        <header className="topbar" style={{ background: '#ffffff', borderBottom: '1px solid #e7e5e4' }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: '#14532d', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>
+              {user?.role === 'SUPER_ADMIN'
+                ? 'Hệ thống Quản trị Sàn Gạo Việt'
+                : user?.role === 'SHOP_OWNER'
+                ? `Kênh Chủ Vựa Gạo — ${myShop?.name || 'Vựa Gạo'}`
+                : user?.role === 'CUSTOMER'
+                ? 'Cổng Đặt Mua Gạo Trực Tuyến'
+                : activeTab === 'auth'
+                ? 'Xác thực tài khoản'
+                : 'Sàn Phân Phối Gạo Sạch & Nông Sản GạoViệt'}
+            </span>
           </div>
 
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 13, color: '#475569' }}>{user.email}</span>
-              <span className="badge" style={{ background: '#dbeafe', color: '#1d4ed8' }}>
+              <span style={{ fontSize: 13, color: '#57534e' }}>{user.email}</span>
+              <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700 }}>
                 {user.role}
               </span>
               <button className="btn btn-danger" onClick={handleLogout}>
@@ -651,10 +702,14 @@ export default function App() {
             <div style={{ display: 'flex', gap: 8 }}>
               {activeTab === 'auth' ? (
                 <button className="btn btn-outline" onClick={() => setActiveTab('market')}>
-                  ← Quay lại Sàn sản phẩm
+                  ← Quay lại Chợ Gạo
                 </button>
               ) : (
-                <button className="btn btn-primary" onClick={() => setActiveTab('auth')}>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: '#15803d', borderColor: '#15803d' }}
+                  onClick={() => setActiveTab('auth')}
+                >
                   Đăng nhập / Đăng ký
                 </button>
               )}
@@ -663,22 +718,63 @@ export default function App() {
         </header>
 
         <main className="content-area">
+          {/* BANNER GIỚI THIỆU NHẸ Ở TRANG CHỢ GẠO */}
+          {activeTab === 'market' && !selectedShopView && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #14532d 0%, #15803d 60%, #ca8a04 100%)',
+                color: '#fff',
+                borderRadius: 12,
+                padding: '20px 24px',
+                marginBottom: 20,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#fef08a', fontWeight: 700 }}>
+                  Tinh hoa hạt gạo Việt • Giao tận bếp
+                </div>
+                <h2 style={{ margin: '4px 0 6px', fontSize: 20, fontWeight: 800 }}>
+                  Gạo Mới Xay Xát Mỗi Ngày — Thơm Dẻo Chuẩn Vị
+                </h2>
+                <p style={{ margin: 0, fontSize: 13, color: '#dcfce7' }}>
+                  Kết nối trực tiếp các vựa gạo đặc sản ST25, Nàng Thơm, Tài Nguyên, Gạo Lứt đến gia đình bạn.
+                </p>
+              </div>
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                Đang mở bán: <b>{products.length}</b> dòng gạo đặc sản
+              </div>
+            </div>
+          )}
+
           {/* THỐNG KÊ NHANH ADMIN */}
           {user?.role === 'SUPER_ADMIN' && (
             <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-label">Tổng số Cửa hàng</div>
+              <div className="stat-card" style={{ borderTop: '3px solid #15803d' }}>
+                <div className="stat-label">Tổng số Vựa gạo</div>
                 <div className="stat-value">{adminShops.length}</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Tổng số Người mua</div>
+              <div className="stat-card" style={{ borderTop: '3px solid #ca8a04' }}>
+                <div className="stat-label">Tổng số Khách hàng</div>
                 <div className="stat-value">{adminCustomers.length}</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Sản phẩm đang bán</div>
+              <div className="stat-card" style={{ borderTop: '3px solid #16a34a' }}>
+                <div className="stat-label">Loại gạo đang bán</div>
                 <div className="stat-value">{products.length}</div>
               </div>
-              <div className="stat-card">
+              <div className="stat-card" style={{ borderTop: '3px solid #0284c7' }}>
                 <div className="stat-label">Tổng đơn toàn sàn</div>
                 <div className="stat-value">{adminOrders.length}</div>
               </div>
@@ -688,18 +784,18 @@ export default function App() {
           {/* THỐNG KÊ NHANH NGƯỜI BÁN */}
           {user?.role === 'SHOP_OWNER' && myShop && (
             <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-label">Trạng thái Cửa hàng</div>
+              <div className="stat-card" style={{ borderTop: '3px solid #15803d' }}>
+                <div className="stat-label">Trạng thái Vựa gạo</div>
                 <div className="stat-value" style={{ fontSize: 18, color: myShop.isActive ? '#16a34a' : '#dc2626' }}>
                   {myShop.isActive ? 'Đang hoạt động' : 'Bị khóa'}
                 </div>
               </div>
-              <div className="stat-card">
-                <div className="stat-label">Sản phẩm của Shop</div>
+              <div className="stat-card" style={{ borderTop: '3px solid #ca8a04' }}>
+                <div className="stat-label">Loại gạo của Vựa</div>
                 <div className="stat-value">{myProducts.length}</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">Tổng đơn</div>
+                <div className="stat-label">Tổng đơn đặt gạo</div>
                 <div className="stat-value">{shopOrders.length}</div>
               </div>
               <div className="stat-card">
@@ -715,15 +811,20 @@ export default function App() {
 
           {/* 1. TAB ĐĂNG NHẬP / ĐĂNG KÝ */}
           {!user && activeTab === 'auth' && (
-            <div className="panel" style={{ maxWidth: 640, margin: '12px auto' }}>
+            <div className="panel" style={{ maxWidth: 640, margin: '12px auto', borderTop: '4px solid #15803d' }}>
               <div className="panel-header">
                 <span className="panel-title">
-                  {authMode === 'login' ? 'Đăng nhập hệ thống' : 'Đăng ký tài khoản mới'}
+                  {authMode === 'login' ? 'Đăng nhập hệ thống GạoViệt' : 'Đăng ký tài khoản mới'}
                 </span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {authMode === 'login' ? (
                     <>
-                      <button type="button" className="btn btn-primary" onClick={() => handleAuthSubmit()}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ background: '#15803d', borderColor: '#15803d' }}
+                        onClick={() => handleAuthSubmit()}
+                      >
                         Đăng nhập
                       </button>
                       <button type="button" className="btn btn-outline" onClick={() => setAuthMode('register')}>
@@ -732,7 +833,12 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <button type="button" className="btn btn-primary" onClick={() => handleAuthSubmit()}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ background: '#15803d', borderColor: '#15803d' }}
+                        onClick={() => handleAuthSubmit()}
+                      >
                         Hoàn tất Đăng ký
                       </button>
                       <button type="button" className="btn btn-outline" onClick={() => setAuthMode('login')}>
@@ -747,7 +853,17 @@ export default function App() {
                 {authMode === 'register' && (
                   <>
                     <div style={{ display: 'flex', gap: 12 }}>
-                      <label style={{ flex: 1, padding: 10, border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
+                      <label
+                        style={{
+                          flex: 1,
+                          padding: 10,
+                          border: authForm.accountType === 'CUSTOMER' ? '1.5px solid #15803d' : '1px solid #cbd5e1',
+                          background: authForm.accountType === 'CUSTOMER' ? '#f0fdf4' : '#fff',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                        }}
+                      >
                         <input
                           type="radio"
                           name="accountType"
@@ -755,9 +871,19 @@ export default function App() {
                           checked={authForm.accountType === 'CUSTOMER'}
                           onChange={(e) => setAuthForm({ ...authForm, accountType: e.target.value })}
                         />{' '}
-                        Người mua hàng
+                        Khách mua gạo
                       </label>
-                      <label style={{ flex: 1, padding: 10, border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
+                      <label
+                        style={{
+                          flex: 1,
+                          padding: 10,
+                          border: authForm.accountType === 'SHOP_OWNER' ? '1.5px solid #15803d' : '1px solid #cbd5e1',
+                          background: authForm.accountType === 'SHOP_OWNER' ? '#f0fdf4' : '#fff',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                        }}
+                      >
                         <input
                           type="radio"
                           name="accountType"
@@ -765,7 +891,7 @@ export default function App() {
                           checked={authForm.accountType === 'SHOP_OWNER'}
                           onChange={(e) => setAuthForm({ ...authForm, accountType: e.target.value })}
                         />{' '}
-                        Người bán (Mở Shop)
+                        Chủ vựa gạo (Mở gian hàng)
                       </label>
                     </div>
 
@@ -782,7 +908,7 @@ export default function App() {
                         <input
                           className="input"
                           style={{ flex: 1 }}
-                          placeholder="Tên Cửa hàng"
+                          placeholder="Tên Vựa gạo / Đại lý gạo"
                           required
                           value={authForm.shopName}
                           onChange={(e) => setAuthForm({ ...authForm, shopName: e.target.value })}
@@ -837,19 +963,19 @@ export default function App() {
           {user?.role === 'SUPER_ADMIN' && activeTab === 'admin-shops' && (
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">Danh sách Người bán & Cửa hàng ({adminShops.length} Shop)</span>
+                <span className="panel-title">Danh sách Vựa gạo & Đại lý ({adminShops.length} Vựa)</span>
               </div>
 
               {adminShops.length === 0 ? (
-                <p style={{ color: '#64748b', fontSize: 14 }}>Chưa có cửa hàng nào trên sàn.</p>
+                <p style={{ color: '#64748b', fontSize: 14 }}>Chưa có vựa gạo nào trên sàn.</p>
               ) : (
                 <>
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Tên Cửa hàng</th>
+                        <th>Tên Vựa gạo</th>
                         <th>Chủ sở hữu</th>
-                        <th>Số sản phẩm</th>
+                        <th>Số loại gạo</th>
                         <th>Trạng thái</th>
                         <th>Thao tác</th>
                       </tr>
@@ -858,15 +984,15 @@ export default function App() {
                       {paginate(adminShops, adminShopPage, 5).map((shop) => {
                         const isSelected = selectedAdminShopId === shop.id;
                         return (
-                          <tr key={shop.id} style={{ background: isSelected ? '#eff6ff' : 'transparent' }}>
+                          <tr key={shop.id} style={{ background: isSelected ? '#f0fdf4' : 'transparent' }}>
                             <td><b>{shop.name}</b></td>
                             <td>
                               {shop.owner?.name}<br />
                               <small style={{ color: '#64748b' }}>{shop.owner?.email}</small>
                             </td>
                             <td>
-                              <span className="badge" style={{ background: '#e0e7ff', color: '#4338ca' }}>
-                                {shop.products?.length || 0} sản phẩm
+                              <span className="badge" style={{ background: '#fef9c3', color: '#854d0e' }}>
+                                {shop.products?.length || 0} loại gạo
                               </span>
                             </td>
                             <td>
@@ -884,6 +1010,7 @@ export default function App() {
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <button
                                   className={`btn ${isSelected ? 'btn-primary' : 'btn-outline'}`}
+                                  style={isSelected ? { background: '#15803d', borderColor: '#15803d' } : undefined}
                                   onClick={() => {
                                     setSelectedAdminShopId(isSelected ? null : shop.id);
                                     setAdminShopProdPage(1);
@@ -895,7 +1022,7 @@ export default function App() {
                                   className={`btn ${shop.isActive ? 'btn-danger' : 'btn-success'}`}
                                   onClick={() => handleToggleShop(shop.id, shop.isActive)}
                                 >
-                                  {shop.isActive ? 'Khóa Shop' : 'Mở khóa'}
+                                  {shop.isActive ? 'Khóa Vựa' : 'Mở khóa'}
                                 </button>
                               </div>
                             </td>
@@ -918,23 +1045,23 @@ export default function App() {
                 <div style={{ marginTop: 20, padding: 16, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <strong>
-                      Chi tiết sản phẩm của Shop: {selectedAdminShop.name} ({selectedAdminShop.products?.length || 0} món)
+                      Chi tiết sản phẩm của Vựa: {selectedAdminShop.name} ({selectedAdminShop.products?.length || 0} loại)
                     </strong>
                     <button className="btn btn-outline" onClick={() => setSelectedAdminShopId(null)}>✕</button>
                   </div>
 
                   {!selectedAdminShop.products || selectedAdminShop.products.length === 0 ? (
-                    <p style={{ fontSize: 14, color: '#64748b' }}>Cửa hàng này chưa đăng sản phẩm nào.</p>
+                    <p style={{ fontSize: 14, color: '#64748b' }}>Vựa gạo này chưa đăng sản phẩm nào.</p>
                   ) : (
                     <>
                       <table className="data-table" style={{ background: '#fff' }}>
                         <thead>
                           <tr>
                             <th>Ảnh</th>
-                            <th>Tên sản phẩm</th>
+                            <th>Tên loại gạo</th>
                             <th>Mã SKU</th>
-                            <th>Giá bán</th>
-                            <th>Tồn kho</th>
+                            <th>Giá bán / kg</th>
+                            <th>Tồn kho (kg)</th>
                             <th>Thao tác Admin</th>
                           </tr>
                         </thead>
@@ -946,21 +1073,21 @@ export default function App() {
                                   <img
                                     src={prod.imageUrl}
                                     alt={prod.name}
-                                    style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 4 }}
+                                    style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }}
                                   />
                                 ) : (
-                                  <span></span>
+                                  <span style={{ fontSize: 22 }}>🌾</span>
                                 )}
                               </td>
                               <td><b>{prod.name}</b></td>
                               <td>{prod.sku}</td>
-                              <td style={{ color: '#2563eb', fontWeight: 700 }}>{prod.price.toLocaleString('vi-VN')} ₫</td>
-                              <td>{prod.stock}</td>
+                              <td style={{ color: '#15803d', fontWeight: 700 }}>{prod.price.toLocaleString('vi-VN')} ₫/kg</td>
+                              <td>{prod.stock} kg</td>
                               <td>
                                 <button
                                   className="btn btn-danger"
                                   style={{ padding: '4px 10px', fontSize: 12 }}
-                                  onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                                  onClick={() => setDeletingProduct({ id: prod.id, name: prod.name })}
                                 >
                                   Xóa sản phẩm
                                 </button>
@@ -987,7 +1114,7 @@ export default function App() {
           {user?.role === 'SUPER_ADMIN' && activeTab === 'admin-users' && (
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">Danh sách Người mua ({adminCustomers.length} tài khoản)</span>
+                <span className="panel-title">Danh sách Khách mua gạo ({adminCustomers.length} tài khoản)</span>
               </div>
 
               <table className="data-table">
@@ -1007,18 +1134,19 @@ export default function App() {
                     ).length;
                     const isSelected = selectedAdminCustomer?.id === cust.id;
                     return (
-                      <tr key={cust.id} style={{ background: isSelected ? '#eff6ff' : 'transparent' }}>
+                      <tr key={cust.id} style={{ background: isSelected ? '#f0fdf4' : 'transparent' }}>
                         <td><b>{cust.name}</b></td>
                         <td>{cust.email}</td>
                         <td>{new Date(cust.createdAt).toLocaleDateString('vi-VN')}</td>
                         <td>
-                          <span className="badge" style={{ background: '#e0e7ff', color: '#4338ca' }}>
+                          <span className="badge" style={{ background: '#dcfce7', color: '#15803d' }}>
                             {count} đơn
                           </span>
                         </td>
                         <td>
                           <button
                             className={`btn ${isSelected ? 'btn-primary' : 'btn-outline'}`}
+                            style={isSelected ? { background: '#15803d', borderColor: '#15803d' } : undefined}
                             onClick={() => {
                               setSelectedAdminCustomer(isSelected ? null : cust);
                               setAdminUserOrderPage(1);
@@ -1055,7 +1183,7 @@ export default function App() {
                         <thead>
                           <tr>
                             <th>Mã đơn</th>
-                            <th>Sản phẩm & Shop</th>
+                            <th>Loại gạo & Vựa</th>
                             <th>SĐT & Địa chỉ nhận</th>
                             <th>Tổng tiền</th>
                             <th>Trạng thái</th>
@@ -1065,9 +1193,9 @@ export default function App() {
                           {paginate(selectedCustomerOrders, adminUserOrderPage, 5).map((o) => (
                             <tr key={o.id}>
                               <td>#{o.id.slice(0, 8).toUpperCase()}</td>
-                              <td><b>{o.productName}</b> (x{o.quantity}) — Shop: {o.shop?.name}</td>
+                              <td><b>{o.productName}</b> ({o.quantity} kg) — Vựa: {o.shop?.name}</td>
                               <td>{o.buyerPhone} — {o.shippingAddress}</td>
-                              <td style={{ fontWeight: 700, color: '#2563eb' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
+                              <td style={{ fontWeight: 700, color: '#15803d' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
                               <td>{renderStatusBadge(o.id, o.status, o.cancelReason)}</td>
                             </tr>
                           ))}
@@ -1090,23 +1218,32 @@ export default function App() {
           {user?.role === 'SHOP_OWNER' && myShop && activeTab === 'shop-products' && (
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">Sản phẩm của Cửa hàng ({myProducts.length})</span>
+                <span className="panel-title">Danh mục Gạo của Vựa ({myProducts.length})</span>
               </div>
 
               {!myShop.isActive ? (
                 <div style={{ padding: 14, background: '#fee2e2', color: '#b91c1c', borderRadius: 8, marginBottom: 20, fontWeight: 600 }}>
-                  ⚠️ Shop của bạn đã bị khóa! Bạn không thể đăng hoặc sửa sản phẩm. Vui lòng liên hệ Admin.
+                  ⚠️ Vựa gạo của bạn đã bị khóa! Bạn không thể đăng hoặc sửa sản phẩm. Vui lòng liên hệ Admin.
                 </div>
               ) : (
-                <form onSubmit={handleSaveProduct} style={{ background: '#f8fafc', padding: 16, borderRadius: 8, marginBottom: 20, border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontWeight: 600, marginBottom: 10 }}>
-                    {editingProductId ? '✏️ Chỉnh sửa sản phẩm' : '+ Đăng bán sản phẩm mới'}
+                <form
+                  onSubmit={handleSaveProduct}
+                  style={{
+                    background: '#f7fee7',
+                    padding: 16,
+                    borderRadius: 10,
+                    marginBottom: 20,
+                    border: '1px solid #bef264',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: 10, color: '#14532d' }}>
+                    {editingProductId ? '✏️ Chỉnh sửa thông tin loại gạo' : '🌾 Đăng bán loại gạo mới'}
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <input className="input" style={{ flex: 1 }} placeholder="Tên sản phẩm" required value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
-                    <input className="input" style={{ flex: 1 }} placeholder="Mã SKU" required value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
-                    <input className="input" style={{ flex: 1 }} type="number" placeholder="Giá bán" required value={prodForm.price} onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })} />
-                    <input className="input" style={{ flex: 1 }} type="number" placeholder="Tồn kho" required value={prodForm.stock} onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })} />
+                    <input className="input" style={{ flex: 1 }} placeholder="Tên loại gạo (VD: Gạo ST25)" required value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} />
+                    <input className="input" style={{ flex: 1 }} placeholder="Mã lô / SKU" required value={prodForm.sku} onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })} />
+                    <input className="input" style={{ flex: 1 }} type="number" placeholder="Giá bán (VNĐ / kg)" required value={prodForm.price} onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })} />
+                    <input className="input" style={{ flex: 1 }} type="number" placeholder="Tồn kho (kg)" required value={prodForm.stock} onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })} />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -1126,8 +1263,12 @@ export default function App() {
                           Hủy
                         </button>
                       )}
-                      <button type="submit" className="btn btn-primary">
-                        {editingProductId ? 'Lưu cập nhật' : 'Đăng sản phẩm'}
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        style={{ background: '#15803d', borderColor: '#15803d' }}
+                      >
+                        {editingProductId ? 'Lưu cập nhật' : 'Đăng bán gạo'}
                       </button>
                     </div>
                   </div>
@@ -1136,20 +1277,22 @@ export default function App() {
 
               <div className="product-grid">
                 {paginate(myProducts, sellerProdPage, 4).map((p) => (
-                  <div key={p.id} className="product-card">
+                  <div key={p.id} className="product-card" style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e7e5e4' }}>
                     {p.imageUrl ? (
-                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
+                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: 160, objectFit: 'cover' }} />
                     ) : (
-                      <div style={{ height: 150, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}></div>
+                      <div style={{ height: 160, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>
+                        🌾
+                      </div>
                     )}
                     <div className="product-body">
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{myShop.name}</div>
-                      <div style={{ fontWeight: 600, fontSize: 15, margin: '4px 0' }}>{p.name}</div>
-                      <div style={{ fontWeight: 700, color: '#2563eb', fontSize: 16 }}>{p.price.toLocaleString('vi-VN')} ₫</div>
-                      <div style={{ fontSize: 12, color: '#64748b', margin: '6px 0 12px' }}>SKU: {p.sku} | Kho: {p.stock}</div>
+                      <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>Vựa: {myShop.name}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, margin: '4px 0', color: '#1c1917' }}>{p.name}</div>
+                      <div style={{ fontWeight: 800, color: '#b45309', fontSize: 16 }}>{p.price.toLocaleString('vi-VN')} ₫ / kg</div>
+                      <div style={{ fontSize: 12, color: '#57534e', margin: '6px 0 12px' }}>Mã lô: {p.sku} | Tồn kho: {p.stock} kg</div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
                         <button className="btn btn-outline" style={{ flex: 1 }} disabled={!myShop.isActive} onClick={() => startEditProduct(p)}>Sửa</button>
-                        <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => handleDeleteProduct(p.id, p.name)}>Xóa</button>
+                        <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => setDeletingProduct({ id: p.id, name: p.name })}>Xóa</button>
                       </div>
                     </div>
                   </div>
@@ -1160,11 +1303,11 @@ export default function App() {
             </div>
           )}
 
-          {/* 5. SHOP OWNER TAB 2: QUẢN LÝ ĐƠN HÀNG (DROPDOWN TRỎ XUỐNG + MŨI TÊN LÝ DO HỦY) */}
+          {/* 5. SHOP OWNER TAB 2: QUẢN LÝ ĐƠN HÀNG */}
           {user?.role === 'SHOP_OWNER' && myShop && activeTab === 'shop-orders' && (
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">Quản lý Đơn hàng của Shop ({shopOrders.length} tổng đơn)</span>
+                <span className="panel-title">Quản lý Đơn đặt gạo của Vựa ({shopOrders.length} tổng đơn)</span>
               </div>
 
               {shopOrders.length === 0 ? (
@@ -1175,7 +1318,7 @@ export default function App() {
                     <thead>
                       <tr>
                         <th>Mã đơn</th>
-                        <th>Sản phẩm</th>
+                        <th>Loại gạo</th>
                         <th>Khách nhận & SĐT</th>
                         <th>Địa chỉ</th>
                         <th>Tổng tiền</th>
@@ -1187,10 +1330,10 @@ export default function App() {
                       {paginate(shopOrders, sellerOrderPage, 5).map((o) => (
                         <tr key={o.id}>
                           <td style={{ whiteSpace: 'nowrap' }}>#{o.id.slice(0, 8).toUpperCase()}</td>
-                          <td><b>{o.productName}</b> (x{o.quantity})</td>
+                          <td><b>{o.productName}</b> ({o.quantity} kg)</td>
                           <td>{o.buyerName}<br /><small>{o.buyerPhone}</small></td>
                           <td>{o.shippingAddress}</td>
-                          <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
+                          <td style={{ fontWeight: 700, whiteSpace: 'nowrap', color: '#15803d' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
                           <td>{renderStatusBadge(o.id, o.status, o.cancelReason)}</td>
                           <td>
                             {o.status !== 'CANCELLED' && o.status !== 'DELIVERED' ? (
@@ -1223,8 +1366,8 @@ export default function App() {
                                   }
                                 }}
                               >
-                                <option value="PREPARING">Đang chuẩn bị</option>
-                                <option value="HANDED_OVER">Đã bàn giao ĐVVC</option>
+                                <option value="PREPARING">Đang đóng bao gạo</option>
+                                <option value="HANDED_OVER">Đang vận chuyển giao gạo</option>
                                 <option value="DELIVERED">Giao thành công</option>
                                 <option value="CANCELLED">Hủy đơn (Nhập lý do)...</option>
                               </select>
@@ -1246,18 +1389,18 @@ export default function App() {
           {user?.role === 'CUSTOMER' && activeTab === 'my-orders' && (
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">Đơn hàng đã mua ({myOrders.length})</span>
+                <span className="panel-title">Đơn gạo đã đặt mua ({myOrders.length})</span>
               </div>
 
               {myOrders.length === 0 ? (
-                <p style={{ color: '#64748b', fontSize: 14 }}>Bạn chưa đặt mua đơn hàng nào.</p>
+                <p style={{ color: '#64748b', fontSize: 14 }}>Bạn chưa đặt mua đơn gạo nào.</p>
               ) : (
                 <>
                   <table className="data-table">
                     <thead>
                       <tr>
                         <th>Mã đơn</th>
-                        <th>Sản phẩm & Shop</th>
+                        <th>Loại gạo & Vựa</th>
                         <th>SĐT & Địa chỉ nhận</th>
                         <th>Tổng tiền</th>
                         <th>Trạng thái</th>
@@ -1268,9 +1411,9 @@ export default function App() {
                       {paginate(myOrders, buyerOrderPage, 5).map((o) => (
                         <tr key={o.id}>
                           <td style={{ whiteSpace: 'nowrap' }}>#{o.id.slice(0, 8).toUpperCase()}</td>
-                          <td><b>{o.productName}</b> (x{o.quantity})<br /><small>Shop: {o.shop?.name}</small></td>
+                          <td><b>{o.productName}</b> ({o.quantity} kg)<br /><small>Vựa: {o.shop?.name}</small></td>
                           <td>{o.buyerPhone}<br /><small>{o.shippingAddress}</small></td>
-                          <td style={{ fontWeight: 700, color: '#2563eb', whiteSpace: 'nowrap' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
+                          <td style={{ fontWeight: 700, color: '#15803d', whiteSpace: 'nowrap' }}>{o.totalAmount.toLocaleString('vi-VN')} ₫</td>
                           <td>{renderStatusBadge(o.id, o.status, o.cancelReason)}</td>
                           <td>
                             {o.status === 'PREPARING' ? (
@@ -1310,31 +1453,51 @@ export default function App() {
 
           {/* 7. TAB SÀN SẢN PHẨM */}
           {user?.role !== 'SHOP_OWNER' && activeTab === 'market' && (
-            <div className="panel">
+            <div className="panel" style={{ borderRadius: 12 }}>
               <div className="panel-header">
-                <span className="panel-title">
+                <span className="panel-title" style={{ color: '#14532d' }}>
                   {selectedShopView
-                    ? `Gian hàng: ${selectedShopView.name} (${displayedProducts.length} sản phẩm)`
-                    : `Sản phẩm đang bày bán trên sàn (${displayedProducts.length})`}
+                    ? `Gian hàng Vựa gạo: ${selectedShopView.name} (${displayedProducts.length} loại gạo)`
+                    : `Các dòng gạo đang bày bán trên sàn (${displayedProducts.length})`}
                 </span>
                 {selectedShopView && (
                   <button className="btn btn-outline" onClick={() => setSelectedShopView(null)}>
-                    ← Xem tất cả sản phẩm
+                    ← Xem tất cả các vựa gạo
                   </button>
                 )}
               </div>
 
               <div className="product-grid">
                 {paginate(displayedProducts, publicProdPage, 8).map((p) => (
-                  <div key={p.id} className="product-card">
+                  <div
+                    key={p.id}
+                    className="product-card"
+                    style={{
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      border: '1px solid #e7e5e4',
+                      background: '#ffffff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    }}
+                  >
                     {p.imageUrl ? (
-                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
+                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: 165, objectFit: 'cover' }} />
                     ) : (
-                      <div style={{ height: 150, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}></div>
+                      <div style={{ height: 165, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42 }}>
+                        🌾
+                      </div>
                     )}
                     <div className="product-body">
                       <div
-                        style={{ fontSize: 12, color: '#2563eb', fontWeight: 600, cursor: 'pointer' }}
+                        style={{
+                          fontSize: 12,
+                          color: '#15803d',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
                         onClick={() => {
                           if (p.shop?.id) {
                             setSelectedShopView({ id: p.shop.id, name: p.shop.name });
@@ -1342,20 +1505,28 @@ export default function App() {
                           }
                         }}
                       >
-                        {p.shop?.name} (Xem Shop)
+                        <span>🏪 {p.shop?.name}</span>
+                        <span style={{ fontWeight: 400, color: '#64748b' }}>(Xem vựa)</span>
                       </div>
-                      <div style={{ fontWeight: 600, fontSize: 15, margin: '4px 0' }}>{p.name}</div>
-                      <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 16 }}>{p.price.toLocaleString('vi-VN')} ₫</div>
-                      <div style={{ fontSize: 12, color: '#64748b', margin: '6px 0 12px' }}>Kho: {p.stock}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, margin: '6px 0', color: '#1c1917' }}>{p.name}</div>
+                      <div style={{ fontWeight: 800, color: '#b45309', fontSize: 17 }}>{p.price.toLocaleString('vi-VN')} ₫ / kg</div>
+                      <div style={{ fontSize: 12, color: '#57534e', margin: '6px 0 12px' }}>Tồn kho: {p.stock} kg</div>
 
                       {(!user || user.role === 'CUSTOMER') && (
                         <button
                           className="btn btn-primary"
-                          style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
+                          style={{
+                            width: '100%',
+                            justifyContent: 'center',
+                            marginTop: 'auto',
+                            background: p.shop?.isActive === false || p.stock <= 0 ? '#94a3b8' : '#15803d',
+                            borderColor: p.shop?.isActive === false || p.stock <= 0 ? '#94a3b8' : '#15803d',
+                            fontWeight: 600,
+                          }}
                           disabled={p.stock <= 0 || p.shop?.isActive === false}
                           onClick={() => openCheckoutModal(p)}
                         >
-                          {p.shop?.isActive === false ? 'Shop tạm khóa' : p.stock > 0 ? 'Mua ngay' : 'Hết hàng'}
+                          {p.shop?.isActive === false ? 'Vựa tạm khóa' : p.stock > 0 ? 'Đặt mua gạo ngay' : 'Tạm hết gạo'}
                         </button>
                       )}
                     </div>
@@ -1369,19 +1540,55 @@ export default function App() {
         </main>
       </div>
 
+      {/* MODAL XÁC NHẬN XÓA SẢN PHẨM Ở GIỮA MÀN HÌNH */}
+      {deletingProduct && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div className="panel" style={{ width: 420, maxWidth: '100%', margin: 0, textAlign: 'center', padding: 24, borderRadius: 14 }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🗑️</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, color: '#0f172a' }}>Xác nhận xóa loại gạo</h3>
+            <p style={{ fontSize: 14, color: '#475569', margin: '0 0 20px', lineHeight: 1.5 }}>
+              Bạn có chắc chắn muốn xóa <b>"{deletingProduct.name}"</b> khỏi danh mục bán không?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => setDeletingProduct(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={confirmDeleteProduct}
+              >
+                Xóa ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL ĐẶT HÀNG */}
       {checkoutProduct && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-          <div className="panel" style={{ width: 440, margin: 0 }}>
+          <div className="panel" style={{ width: 440, margin: 0, borderRadius: 14 }}>
             <div className="panel-header">
-              <span className="panel-title">Thông tin nhận hàng</span>
+              <span className="panel-title" style={{ color: '#14532d' }}>Thông tin giao gạo tận nhà</span>
               <button className="btn btn-outline" onClick={() => setCheckoutProduct(null)}>✕</button>
             </div>
             <p style={{ fontSize: 14, marginBottom: 12 }}>
-              Món hàng: <b>{checkoutProduct.name}</b> — Shop: <b>{checkoutProduct.shop?.name}</b>
+              Loại gạo: <b>{checkoutProduct.name}</b> — Vựa: <b>{checkoutProduct.shop?.name}</b>
+              <br />
+              <span style={{ color: '#b45309', fontWeight: 700 }}>
+                Đơn giá: {checkoutProduct.price.toLocaleString('vi-VN')} ₫/kg • Tạm tính:{' '}
+                {(checkoutProduct.price * (Number(checkoutForm.quantity) || 1)).toLocaleString('vi-VN')} ₫
+              </span>
             </p>
             <form onSubmit={handleConfirmPurchase} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input className="input" type="number" min={1} max={checkoutProduct.stock} required placeholder="Số lượng" value={checkoutForm.quantity} onChange={(e) => setCheckoutForm({ ...checkoutForm, quantity: Number(e.target.value) })} />
+              <input className="input" type="number" min={1} max={checkoutProduct.stock} required placeholder="Số lượng (kg)" value={checkoutForm.quantity} onChange={(e) => setCheckoutForm({ ...checkoutForm, quantity: Number(e.target.value) })} />
               <input className="input" required placeholder="Số điện thoại người nhận (10 số)" value={checkoutForm.buyerPhone} onChange={(e) => setCheckoutForm({ ...checkoutForm, buyerPhone: e.target.value })} />
               <input className="input" required placeholder="Địa chỉ giao hàng chi tiết" value={checkoutForm.shippingAddress} onChange={(e) => setCheckoutForm({ ...checkoutForm, shippingAddress: e.target.value })} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
@@ -1400,7 +1607,13 @@ export default function App() {
                 ) : <span />}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-outline" onClick={() => setCheckoutProduct(null)}>Hủy</button>
-                  <button type="submit" className="btn btn-primary">Xác nhận đặt mua</button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ background: '#15803d', borderColor: '#15803d' }}
+                  >
+                    Xác nhận đặt mua
+                  </button>
                 </div>
               </div>
             </form>
@@ -1411,7 +1624,7 @@ export default function App() {
       {/* MODAL ĐỔI SĐT / ĐỊA CHỈ */}
       {editingBuyerOrder && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-          <div className="panel" style={{ width: 420, margin: 0 }}>
+          <div className="panel" style={{ width: 420, margin: 0, borderRadius: 14 }}>
             <div className="panel-header">
               <span className="panel-title">Đổi SĐT & Địa chỉ nhận</span>
               <button className="btn btn-outline" onClick={() => setEditingBuyerOrder(null)}>✕</button>
@@ -1421,7 +1634,13 @@ export default function App() {
               <input className="input" required placeholder="Địa chỉ mới" value={buyerEditForm.shippingAddress} onChange={(e) => setBuyerEditForm({ ...buyerEditForm, shippingAddress: e.target.value })} />
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
                 <button type="button" className="btn btn-outline" onClick={() => setEditingBuyerOrder(null)}>Đóng</button>
-                <button type="submit" className="btn btn-primary">Lưu thay đổi</button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: '#15803d', borderColor: '#15803d' }}
+                >
+                  Lưu thay đổi
+                </button>
               </div>
             </form>
           </div>
@@ -1431,14 +1650,14 @@ export default function App() {
       {/* MODAL LÝ DO HỦY ĐƠN HÀNG */}
       {cancellingOrder && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-          <div className="panel" style={{ width: 440, margin: 0 }}>
+          <div className="panel" style={{ width: 440, margin: 0, borderRadius: 14 }}>
             <div className="panel-header">
               <span className="panel-title" style={{ color: '#dc2626' }}>Xác nhận Hủy đơn hàng</span>
               <button className="btn btn-outline" onClick={() => setCancellingOrder(null)}>✕</button>
             </div>
             {cancellingOrder.productName && (
               <p style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>
-                Sản phẩm: <b>{cancellingOrder.productName}</b>
+                Loại gạo: <b>{cancellingOrder.productName}</b>
               </p>
             )}
 
@@ -1448,11 +1667,11 @@ export default function App() {
                   ? [
                       'Thay đổi ý định mua hàng',
                       'Muốn thay đổi địa chỉ / số điện thoại nhận hàng',
-                      'Tìm thấy sản phẩm giá tốt hơn',
+                      'Muốn đổi sang loại gạo khác',
                     ]
                   : [
                       'Hết hàng (Báo hủy cho ĐVVC)',
-                      'Sản phẩm lỗi kiểm tra trước khi xuất kho',
+                      'Lô gạo chưa đạt độ ẩm xuất kho',
                       'Không liên lạc được với khách hàng',
                     ]
                 ).map((preset) => (
@@ -1461,8 +1680,8 @@ export default function App() {
                     style={{
                       padding: '8px 10px',
                       borderRadius: 6,
-                      border: cancelReasonText === preset ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                      background: cancelReasonText === preset ? '#eff6ff' : '#f8fafc',
+                      border: cancelReasonText === preset ? '1px solid #15803d' : '1px solid #e2e8f0',
+                      background: cancelReasonText === preset ? '#f0fdf4' : '#f8fafc',
                       fontSize: 13,
                       cursor: 'pointer',
                     }}
@@ -1500,16 +1719,46 @@ export default function App() {
         </div>
       )}
 
-      {/* THÔNG BÁO NỔI Ở GÓC DƯỚI BÊN PHẢI */}
+      {/* THÔNG BÁO NỔI Ở GIỮA MÀN HÌNH */}
       {msg && (
-        <div className={`toast-floating ${isClosingToast ? 'closing' : ''}`}>
-          <span style={{ flex: 1 }}>{msg}</span>
-          <button
-            onClick={() => setMsg('')}
-            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 1100,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              pointerEvents: 'auto',
+              background: '#14532d',
+              color: '#fff',
+              padding: '14px 20px',
+              borderRadius: 12,
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              maxWidth: 420,
+              opacity: isClosingToast ? 0 : 1,
+              transition: 'opacity 0.3s ease',
+              fontSize: 14,
+              fontWeight: 500,
+            }}
           >
-            ✕
-          </button>
+            <span style={{ flex: 1 }}>{msg}</span>
+            <button
+              onClick={() => setMsg('')}
+              style={{ background: 'transparent', border: 'none', color: '#bbf7d0', cursor: 'pointer', fontSize: 15 }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
     </div>
