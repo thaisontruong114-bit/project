@@ -1,48 +1,33 @@
-import { Body, Controller, Post, Get, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { RolesGuard } from './roles.guard';
-import { Roles } from './roles.decorator';
-import { Role } from '@prisma/client';
+import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { AuthService } from './auth.service.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('send-otp')
-  async sendOtp(@Body('email') email: string) {
-    return this.authService.sendOtp(email);
-  }
-
   @Post('register')
   async register(
-    @Body('email') email: string,
-    @Body('password') pass: string,
-    @Body('name') name: string,
-    @Body('otp') otp: string,
-    @Body('accountType') accountType?: string,
-    @Body('shopName') shopName?: string,
+    @Body()
+    body: {
+      name: string;
+      email: string;
+      pass: string;
+      accountType?: 'CUSTOMER' | 'SHOP_OWNER';
+      shopName?: string;
+    },
   ) {
-    return this.authService.register(email, pass, name, otp, accountType, shopName);
+    return this.authService.register(body);
   }
 
-  @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body('email') email: string, @Body('password') pass: string) {
-    return this.authService.login(email, pass);
+  async login(@Body() body: { email: string; pass: string }) {
+    return this.authService.login(body.email, body.pass);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req: any) {
     return req.user;
-  }
-
-  // Admin lấy danh sách người mua
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.SUPER_ADMIN)
-  @Get('admin/customers')
-  getAllCustomersAdmin() {
-    return this.authService.getAllCustomersAdmin();
   }
 }
